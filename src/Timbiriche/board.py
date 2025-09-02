@@ -1,0 +1,98 @@
+from dataclasses import dataclass
+from typing import Literal, Iterable, Tuple, List
+
+@dataclass
+class Board:
+    rows: int
+    cols: int
+    horizontal_edges: List[List[bool]]
+    vertical_edges: List[List[bool]]
+    box_owner: List[List[int]]
+    box_edges_count: List[List[int]]
+    player: int
+    scores: List[int]
+
+    def __init__(self, rows: int, cols: int):
+        self.rows = rows
+        self.cols = cols
+        self.horizontal_edges = [[False for _ in range(cols)] for _ in range(rows + 1)]
+        self.vertical_edges = [[False for _ in range(cols + 1)] for _ in range(rows)]
+        self.box_owner = [[-1 for _ in range(cols)] for _ in range(rows)]
+        self.box_edges_count = [[0 for _ in range(cols)] for _ in range(rows)]
+        self.player = 1
+        self.scores = [0, 0]
+
+    def _adjacent_boxes(self, edge_type: Literal["h", "v"], row: int, col: int) -> Iterable[Tuple[int, int]]:
+        if edge_type == "h":
+            if row > 0:
+                yield (row - 1, col)
+            if row < self.rows:
+                yield (row, col)
+        elif edge_type == "v":
+            if col > 0:
+                yield (row, col - 1)
+            if col < self.cols:
+                yield (row, col)
+
+    def _edge_is_free(self, edge_type: Literal["h", "v"], row: int, col: int) -> bool:
+        if edge_type == "h":
+            return not self.horizontal_edges[row][col]
+        elif edge_type == "v":
+            return not self.vertical_edges[row][col]
+        return False
+    
+    def is_move_valid(self, edge_type: Literal["h", "v"], row: int, col: int) -> bool:
+        if edge_type == "h":
+            return 0 <= row <= self.rows and 0 <= col < self.cols and self._edge_is_free(edge_type, row, col)
+        elif edge_type == "v":
+            return 0 <= row < self.rows and 0 <= col <= self.cols and self._edge_is_free(edge_type, row, col)
+        return False
+    
+    def is_game_over(self) -> bool:
+        return all(all(row) for row in self.box_owner) 
+
+    def make_move(self, edge_type: Literal["h", "v"], row: int, col: int) -> bool:
+        if not self.is_move_valid(edge_type, row, col):
+            raise ValueError("Invalid move")
+        
+        self.draw_edge(edge_type, row, col)
+        completed_box = False
+
+        for r, c in self._adjacent_boxes(edge_type, row, col):
+            self.box_edges_count[r][c] += 1
+            if self.box_edges_count[r][c] == 4:
+                self.box_owner[r][c] = self.player
+                self.scores[self.player - 1] += 1
+                completed_box = True
+
+        if not completed_box:
+            self.player = 2 if self.player == 1 else 1
+        
+        return completed_box 
+
+    def draw_edge(self, edge_type: Literal["h", "v"], row: int, col: int):
+        if edge_type == "h":
+            self.horizontal_edges[row][col] = True
+        elif edge_type == "v":
+            self.vertical_edges[row][col] = True
+
+    def __str__(self):
+        board_str = ""
+        for r in range(self.rows + 1):
+            # Draw horizontal edges and dots
+            for c in range(self.cols):
+                board_str += "•"
+                board_str += "---" if self.horizontal_edges[r][c] else "   "
+            board_str += "•\n"
+            if r < self.rows:
+                # Draw vertical edges and boxes
+                for c in range(self.cols + 1):
+                    board_str += "|" if self.vertical_edges[r][c] else " "
+                    if c < self.cols:
+                        box_owner = self.box_owner[r][c]
+                        board_str += f" {box_owner if box_owner != 0 else ' '} "
+                board_str += "\n"
+        return board_str
+
+    def print_board(self):
+        print(self.__str__())
