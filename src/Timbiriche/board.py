@@ -22,6 +22,16 @@ class Board:
         self.player = 1
         self.scores = [0, 0]
 
+    def clone(self) -> "Board":
+        nb = Board(self.rows, self.cols)
+        nb.horizontal_edges = [row[:] for row in self.horizontal_edges]
+        nb.vertical_edges   = [row[:] for row in self.vertical_edges]
+        nb.box_owner        = [row[:] for row in self.box_owner]
+        nb.box_edges_count  = [row[:] for row in self.box_edges_count]
+        nb.player           = self.player
+        nb.scores           = self.scores[:]
+        return nb
+
     def _adjacent_boxes(self, edge_type: Literal["h", "v"], row: int, col: int) -> Iterable[Tuple[int, int]]:
         if edge_type == "h":
             if row > 0:
@@ -48,8 +58,22 @@ class Board:
             return 0 <= row < self.rows and 0 <= col <= self.cols and self._edge_is_free(edge_type, row, col)
         return False
     
+    def legal_moves(self):
+        # h: r in [0..rows], c in [0..cols-1]
+        for r in range(self.rows + 1):
+            for c in range(self.cols):
+                if not self.horizontal_edges[r][c]:
+                    yield ('h', r, c)
+        # v: r in [0..rows-1], c in [0..cols]
+        for r in range(self.rows):
+            for c in range(self.cols + 1):
+                if not self.vertical_edges[r][c]:
+                    yield ('v', r, c)
+
+
     def is_game_over(self) -> bool:
-        return all(all(row) for row in self.box_owner) 
+        return all(all(r) for r in self.horizontal_edges) and \
+           all(all(r) for r in self.vertical_edges)
 
     def make_move(self, edge_type: Literal["h", "v"], row: int, col: int) -> bool:
         if not self.is_move_valid(edge_type, row, col):
@@ -79,13 +103,13 @@ class Board:
     def __str__(self):
         board_str = ""
         for r in range(self.rows + 1):
-            # Draw horizontal edges and dots
+            # Dibuja bordes horizontales
             for c in range(self.cols):
                 board_str += "•"
                 board_str += "---" if self.horizontal_edges[r][c] else "   "
             board_str += "•\n"
             if r < self.rows:
-                # Draw vertical edges and boxes
+                # Dibuja bordes verticales y dueños de cajas
                 for c in range(self.cols + 1):
                     board_str += "|" if self.vertical_edges[r][c] else " "
                     if c < self.cols:
