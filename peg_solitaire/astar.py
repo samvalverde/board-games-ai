@@ -1,52 +1,102 @@
-import heapq
-from dataclasses import dataclass, field
 from typing import Optional
-from .board import Board, Move
-from .heuristics import h_min_moves
+from peg_solitaire.board import Board, Move
+import heapq
+import time
 
-@dataclass(order=True)
-class PQItem:
-    f: int
-    tie: int
-    node: object = field(compare=False)
-
-@dataclass
 class Node:
-    board: Board
-    g: int
-    move: Optional[Move]
-    parent: Optional["Node"]
+    def __init__(self, board: Board, g=0, move: Optional[Move] = None, parent: Optional["Node"] = None):
+        self.board = board      # estado del tablero
+        self.g = g              # costo real hasta aquí
+        self.h = 0              # heurística
+        self.f = 0              # f = g + h
+        self.move = move        # movimiento que llevó a este estado
+        self.parent = parent    # nodo padre (para reconstruir el camino)
 
-def reconstruct(node: Node):
-    path, boards = [], []
-    while node:
-        path.append(node.move)
-        boards.append(node.board)
-        node = node.parent
-    return list(reversed(path[:-1])), list(reversed(boards))
+    def __lt__(self, other: "Node"):
+        return self.f < other.f
 
-def astar(start: Board, h_func=h_min_moves):
-    open_heap, open_map, closed = [], {}, set()
-    start_node = Node(start, g=0, move=None, parent=None)
-    tie = 0
-    heapq.heappush(open_heap, PQItem(h_func(start), tie, start_node))
-    open_map[start] = (0, None)
 
-    while open_heap:
-        current = heapq.heappop(open_heap).node
+def astar(start: Board, h_func, max_expansions: int = 50_000):
+    nodos_expandidos = 0
+    nodos_generados = 0
+    max_frontier = 0
+    start_time = time.perf_counter()
+
+    root = Node(start, g=0)
+    root.h = h_func(start)
+    root.f = root.g + root.h
+
+    open_set = [root]
+    closed_set = set()
+
+    while open_set:
+        current = heapq.heappop(open_set)
+        nodos_expandidos += 1
+        max_frontier = max(max_frontier, len(open_set))
+
+        # 🔒 Parar si excedemos el límite
+        if nodos_expandidos > max_expansions:
+            elapsed = time.perf_counter() - start_time
+            return None, None, {
+                "time": elapsed,
+                "expanded": nodos_expandidos,
+                "generated": nodos_generados,
+                "max_frontier": max_frontier,
+                "solution_length": None,
+                "success": False,
+                "aborted": True,
+            }
+
         if current.board.is_goal():
-            return reconstruct(current)
+            path, boards = [], []
+            while current:
+                if current.move:
+                    path.append(current.move)
+                boards.append(current.board)
+                current = current.parent
+            path.reverse()
+            boards.reverse()
 
-        closed.add(current.board)
-        for m in current.board.legal_moves():
-            nb = current.board.apply(m)
-            if nb in closed:
+            elapsed = time.perf_counter() - start_time
+            return path, boards, {
+                "time": elapsed,
+                "expanded": nodos_expandidos,
+                "generated": nodos_generados,
+                "max_frontier": max_frontier,
+                "solution_length": len(path),
+                "success": True,
+                "aborted": False,
+            }
+
+        closed_set.add(current.board)
+
+        for move in current.board.legal_moves():
+            new_board = current.board.apply(move)
+            if new_board in closed_set:
                 continue
-            g2 = current.g + 1
-            f2 = g2 + h_func(nb)
-            prev = open_map.get(nb)
-            if prev is None or g2 < prev[0]:
-                tie += 1
-                heapq.heappush(open_heap, PQItem(f2, tie, Node(nb, g2, m, current)))
-                open_map[nb] = (g2, m)
-    return None
+
+            g = current.g + 1
+            h = h_func(new_board)
+            f = g + h
+            nodos_generados += 1
+
+            existing_node = next((node for node in open_set if node.board == new_board), None)
+            if existing_node and existing_node.f <= f:
+                continue
+
+            new_node = Node(new_board, g=g, move=move, parent=current)
+            new_node.h = h
+            new_node.f = f
+            heapq.heappush(open_set, new_node)
+
+    elapsed = time.perf_counter() - start_time
+    return None, None, {
+        "time": elapsed,
+        "expanded": nodos_expandidos,
+        "generated": nodos_generados,
+        "max_frontier": max_frontier,
+        "solution_length": None,
+        "success": False,
+        "aborted": False,
+    }
+

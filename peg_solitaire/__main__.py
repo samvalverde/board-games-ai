@@ -1,15 +1,30 @@
-from .board import Board
-from .astar import astar
+import argparse
+from peg_solitaire.board import Board
+from peg_solitaire.astar import astar
+from peg_solitaire.heuristics import h_min_moves
+
+# Ejecutar A* desde línea de comandos
+# Uso: poetry run python -m peg_solitaire -n 3
 
 if __name__ == "__main__":
-    # Tablero clásico: n=3
-    start = Board(3)
-    print("Estado inicial:")
+    parser = argparse.ArgumentParser()
+    parser.add_argument("-n", type=int, default=3, help="Tamaño del tablero (impar)")
+    args = parser.parse_args()
+
+    start = Board(args.n)
+    print(f"Estado inicial con n={args.n}:")
     print(start)
 
-    result = astar(start)
-    if result:
-        path, boards = result
-        print(f"\nSolución encontrada con {len(path)} movimientos")
+    path, boards, metrics = astar(start, h_func=h_min_moves)
+
+    if metrics["success"]:
+        print(f"\nSolución encontrada con {metrics['solution_length']} movimientos")
+        for i, board in enumerate(boards):
+            print(f"\nPaso {i}:")
+            print(board)
     else:
-        print("No se encontró solución")
+        print("\nNo se encontró solución")
+
+    print("\nMétricas de ejecución:")
+    for k, v in metrics.items():
+        print(f"- {k}: {v}")
