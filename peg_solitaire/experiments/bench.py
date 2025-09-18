@@ -4,10 +4,12 @@ from peg_solitaire.board import Board
 from peg_solitaire.astar import astar
 from peg_solitaire.heuristics import h_min_moves, h_manhattan, h_combo
 
+# Run: poetry run python -m peg_solitaire.experiments.bench
+
 # Parámetros de benchmark
-SIZES = [3, 5]        # Tableros a probar (⚠️ limitar 7 por explosión)
-RUNS = 3              # Número de repeticiones por tamaño
-OUTPUT_FILE = "experiments/results.csv"
+SIZES = [3, 5, 7]     # Tableros a probar
+RUNS = 5              # Repeticiones por tamaño
+OUTPUT_FILE = "peg_solitaire/experiments/results.csv"
 
 HEURISTICS = {
     "min_moves": h_min_moves,
@@ -21,9 +23,16 @@ def run_benchmark():
     for name, h_func in HEURISTICS.items():
         for n in SIZES:
             for run in range(RUNS):
-                print(f"\n▶️ Ejecutando h={name}, n={n}, corrida {run+1}/{RUNS}")
+                print(f"\nEjecutando h={name}, n={n}, corrida {run+1}/{RUNS}")
                 start = Board(n)
-                path, boards, metrics = astar(start, h_func=h_func)
+
+                # Llamada a astar con límites más generosos
+                path, boards, metrics = astar(
+                    start,
+                    h_func=h_func,
+                    max_expansions=500_000,   # ahora medio millón
+                    max_time=120              # hasta 2 minutos por corrida
+                )
 
                 row = {
                     "heuristic": name,
@@ -40,13 +49,13 @@ def run_benchmark():
                 results.append(row)
 
     # Guardar resultados en CSV
-    os.makedirs("experiments", exist_ok=True)
+    os.makedirs("peg_solitaire/experiments", exist_ok=True)
     with open(OUTPUT_FILE, "w", newline="") as f:
         writer = csv.DictWriter(f, fieldnames=results[0].keys())
         writer.writeheader()
         writer.writerows(results)
 
-    print(f"\n✅ Resultados guardados en {OUTPUT_FILE}")
+    print(f"\nResultados guardados en {OUTPUT_FILE}")
 
 
 if __name__ == "__main__":

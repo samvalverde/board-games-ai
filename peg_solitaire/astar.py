@@ -16,7 +16,8 @@ class Node:
         return self.f < other.f
 
 
-def astar(start: Board, h_func, max_expansions: int = 50_000):
+def astar(start: Board, h_func, max_expansions: int = 500_000, max_time: int = 120):
+    import time
     nodos_expandidos = 0
     nodos_generados = 0
     max_frontier = 0
@@ -34,9 +35,9 @@ def astar(start: Board, h_func, max_expansions: int = 50_000):
         nodos_expandidos += 1
         max_frontier = max(max_frontier, len(open_set))
 
-        # 🔒 Parar si excedemos el límite
-        if nodos_expandidos > max_expansions:
-            elapsed = time.perf_counter() - start_time
+        # 🔒 Parar si excedemos expansiones o tiempo
+        elapsed = time.perf_counter() - start_time
+        if nodos_expandidos > max_expansions or elapsed > max_time:
             return None, None, {
                 "time": elapsed,
                 "expanded": nodos_expandidos,
@@ -99,4 +100,3 @@ def astar(start: Board, h_func, max_expansions: int = 50_000):
         "success": False,
         "aborted": False,
     }
-
